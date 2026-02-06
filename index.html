@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMS Strategic Map</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons (Lightweight icon library) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        
+        /* Smooth scrolling for the modal content */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* Animations */
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+        .dependency-pulse {
+            animation: pulse-border 2s infinite;
+        }
+
+        /* Soft, dynamic highlighting for related departments */
+        .dept-glow {
+            position: relative;
+            overflow: hidden;
+        }
+        .dept-glow::before {
+            content: "";
+            position: absolute;
+            inset: -40%;
+            background:
+                radial-gradient(circle at 30% 30%, rgba(125, 211, 252, 0.35), transparent 60%),
+                radial-gradient(circle at 70% 60%, rgba(167, 139, 250, 0.25), transparent 55%),
+                radial-gradient(circle at 40% 80%, rgba(134, 239, 172, 0.18), transparent 60%);
+            filter: blur(14px);
+            animation: auroraMove 4s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .dept-glow::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0));
+            pointer-events: none;
+            z-index: 0;
+        }
+        .dept-glow > * {
+            position: relative;
+            z-index: 1;
+        }
+        @keyframes auroraMove {
+            0%   { transform: translate(-6%, -4%) scale(1); }
+            50%  { transform: translate(6%, 4%) scale(1.06); }
+            100% { transform: translate(-6%, -4%) scale(1); }
+        }
+
+        /* KPI popup animation */
+        .kpi-pop {
+            animation: popCenter 0.22s ease-out forwards;
+        }
+        .dept-pop { animation: popCenter 0.22s ease-out forwards; }
+        @keyframes popCenter {
+            from { opacity: 0; transform: translateY(10px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    
+        /* --- Related departments badges (color-coded) --- */
+        .dept-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+        .dept-badge{
+        display:inline-flex;align-items:center;justify-content:center;
+        padding:6px 10px;border-radius:999px;
+        font-size:12px;font-weight:700;line-height:1;
+        color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.12);
+        transform:translateZ(0);
+        }
+        .dept-badge.small{padding:5px 9px;font-size:11px}
+        .dept-operations{background:linear-gradient(135deg,#007f99,#00a7c4)}
+        .dept-finance{background:linear-gradient(135deg,#1a5fb4,#3b82f6)}
+        .dept-commercial{background:linear-gradient(135deg,#4f46e5,#7c3aed)}
+        .dept-plant{background:linear-gradient(135deg,#ff7a00,#ffb000)}
+        .dept-qhse{background:linear-gradient(135deg,#c1121f,#ff3b30)}
+        .dept-hr{background:linear-gradient(135deg,#0f766e,#14b8a6)}
+        .dept-diving{background:linear-gradient(135deg,#006d77,#00b4d8)}
+        .dept-it{background:linear-gradient(135deg,#1f2937,#111827)}
+        .dept-ceo{background:linear-gradient(135deg,#111827,#334155)}
+        .dept-coo{background:linear-gradient(135deg,#0b1320,#1f3a8a)}
+
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- dept badge helper (color-coded) ---
+        const deptToClass = (name) => {
+            const n = (name || "").toString().trim().toLowerCase();
+            const slug = n.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            const map = {
+                "qhse": "qhse", "q-hse": "qhse", "hse": "qhse",
+                "plant": "plant", "assets": "plant", "asset": "plant",
+                "operations": "operations", "ops": "operations",
+                "finance": "finance",
+                "commercial": "commercial", "sales": "commercial",
+                "hr": "hr", "human-resources": "hr",
+                "diving": "diving",
+                "it": "it", "ict": "it",
+                "ceo": "ceo",
+                "coo": "coo"
+            };
+            return map[slug] || slug;
+        };
+
+        // --- ICONS (Using SVG wrappers) ---
+        const IconWrapper = ({ children, size = 16, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>
+        );
+
+        const Icons = {
+            Briefcase: (props) => <IconWrapper {...props}><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></IconWrapper>,
+            Activity: (props) => <IconWrapper {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></IconWrapper>,
+            DollarSign: (props) => <IconWrapper {...props}><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></IconWrapper>,
+            UserCheck: (props) => <IconWrapper {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></IconWrapper>,
+            Layers: (props) => <IconWrapper {...props}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></IconWrapper>,
+            Anchor: (props) => <IconWrapper {...props}><circle cx="12" cy="5" r="3"/><line x1="12" x2="12" y1="22" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></IconWrapper>,
+            HardHat: (props) => <IconWrapper {...props}><path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6h0"/><path d="M14 6h0a6 6 0 0 1 6 6v3"/></IconWrapper>,
+            FileText: (props) => <IconWrapper {...props}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></IconWrapper>,
+            Shield: (props) => <IconWrapper {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></IconWrapper>,
+            Sparkles: (props) => <IconWrapper {...props}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 21l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 3v4"/><path d="M3 5h4"/><path d="M3 9h4"/></IconWrapper>,
+            X: (props) => <IconWrapper {...props}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></IconWrapper>,
+            Loader: (props) => <IconWrapper {...props} className={`${props.className} animate-spin`}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></IconWrapper>,
+            Link: (props) => <IconWrapper {...props}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></IconWrapper>,
+            Gear: (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></IconWrapper>,
+            Building2: (props) => <IconWrapper {...props}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" /><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" /><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" /><path d="M10 6h4" /><path d="M10 10h4" /><path d="M10 14h4" /><path d="M10 18h4" /></IconWrapper>
+        };
+
+        // --- THEME DEFINITIONS ---
+        const deptThemes = {
+            Finance:    { bg: 'bg-blue-100',    text: 'text-blue-800',    border: 'border-blue-200',    solid: 'bg-blue-600',    badgeText: 'text-white' },
+            QHSE:       { bg: 'bg-red-100',     text: 'text-red-800',     border: 'border-red-200',     solid: 'bg-red-600',     badgeText: 'text-white' },
+            Operations: { bg: 'bg-cyan-100',    text: 'text-cyan-800',    border: 'border-cyan-200',    solid: 'bg-cyan-600',    badgeText: 'text-white' },
+            Commercial: { bg: 'bg-indigo-100',  text: 'text-indigo-800',  border: 'border-indigo-200',  solid: 'bg-indigo-600',  badgeText: 'text-white' },
+            Plant:      { bg: 'bg-orange-100',  text: 'text-orange-800',  border: 'border-orange-200',  solid: 'bg-orange-600',  badgeText: 'text-white' },
+            HR:         { bg: 'bg-purple-100',  text: 'text-purple-800',  border: 'border-purple-200',  solid: 'bg-purple-600',  badgeText: 'text-white' },
+            Diving:     { bg: 'bg-teal-100',    text: 'text-teal-800',    border: 'border-teal-200',    solid: 'bg-teal-600',    badgeText: 'text-white' },
+            COO:        { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200', solid: 'bg-emerald-700', badgeText: 'text-white' },
+            CEO:        { bg: 'bg-slate-100',   text: 'text-slate-800',   border: 'border-slate-200',   solid: 'bg-slate-800',   badgeText: 'text-white' },
+            IT:         { bg: 'bg-sky-100',     text: 'text-sky-800',     border: 'border-sky-200',     solid: 'bg-sky-600',     badgeText: 'text-white' },
+        };
+        const defaultTheme = { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200', solid: 'bg-gray-500', badgeText: 'text-white' };
+
+        // --- COMPONENTS ---
+
+        const KPICard = ({ title, target, type, affectedByDept, functions, relatedDepts = [], onSelect, onHover, onLeave }) => {
+            let styleClass = "";
+            if (affectedByDept && deptThemes[affectedByDept]) {
+                const theme = deptThemes[affectedByDept];
+                styleClass = `${theme.bg} ${theme.text} border-l-4 ${theme.border.replace('border', 'border-l')}`;
+            } else {
+                 switch (type) {
+                    case 'Financial': styleClass = 'bg-blue-50 text-blue-700 border-blue-100'; break;
+                    case 'Safety': styleClass = 'bg-red-50 text-red-700 border-red-100'; break;
+                    case 'Operational': styleClass = 'bg-green-50 text-green-700 border-green-100'; break;
+                    case 'Asset': styleClass = 'bg-orange-50 text-orange-700 border-orange-100'; break;
+                    case 'HR': styleClass = 'bg-purple-50 text-purple-700 border-purple-100'; break;
+                    case 'Growth': styleClass = 'bg-indigo-50 text-indigo-700 border-indigo-100'; break;
+                    case 'Strategic': styleClass = 'bg-slate-50 text-slate-700 border-slate-100'; break;
+                    case 'Governance': styleClass = 'bg-gray-50 text-gray-700 border-gray-100'; break;
+                    case 'Technology': styleClass = 'bg-sky-50 text-sky-700 border-sky-100'; break;
+                    default: styleClass = 'bg-gray-50 text-gray-700 border-gray-100'; break;
+                }
+            }
+
+            return (
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); onSelect && onSelect({ title, target, type, functions, relatedDepts }); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSelect && onSelect({ title, target, type, functions, relatedDepts }); } }}
+                    onMouseEnter={() => onHover && onHover(relatedDepts)}
+                    onMouseLeave={() => onLeave && onLeave()}
+                    className={`px-2.5 py-2 mb-1.5 rounded-lg border text-[11px] ${styleClass} transition-all duration-300 shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-indigo-400`}>
+
+                    <div className="flex justify-between items-center">
+                        <span className="font-semibold truncate pr-2 w-2/3" title={title}>{title}</span>
+                        <span className="whitespace-nowrap opacity-90 font-bold bg-white/50 px-1.5 py-0.5 rounded text-[10px]">{target}</span>
+                    </div>
+                    {functions && (
+                        <div className="mt-1.5 pt-1.5 border-t border-black/5 text-[9px] opacity-80 leading-tight flex flex-col gap-0.5">
+                            <div><span className="font-semibold">Fn:</span> {functions}</div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const OrgNode = ({ id, title, roleFocus, icon: Icon, kpis, colorClass, onAnalyze, width = "w-72", onHover, hoveredId, dependencies = [], affectedBy = [], highlightDepts = [], onKpiSelect, onKpiHover, onKpiLeave, onDeptSelect, hideKpis = false }) => {
+            const isHovered = hoveredId === id;
+            const isAffected = hoveredId && affectedBy.includes(hoveredId);
+            const isEffector = hoveredId && dependencies.includes(hoveredId);
+            const isHighlighted = highlightDepts && highlightDepts.includes(id);
+            
+            let containerStyle = `flex flex-col ${width} bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative group transition-all duration-300 cursor-pointer`;
+            
+            if (isHovered) {
+                containerStyle += " ring-2 ring-indigo-500 transform -translate-y-1 shadow-xl z-20";
+            } else if (isAffected) {
+                containerStyle += " ring-2 ring-amber-400 dependency-pulse z-10 scale-[1.02]";
+            } else if (isHighlighted) {
+                containerStyle += " ring-2 ring-sky-300 dept-glow z-30 scale-[1.03]";
+            } else if (hoveredId && !isAffected && !isEffector && !isHighlighted) {
+                containerStyle += " opacity-30 grayscale";
+            }
+
+            return (
+                <div 
+                    className={containerStyle}
+                    onMouseEnter={() => onHover(id)}
+                    onMouseLeave={() => onHover(null)}
+                    onClick={() => onDeptSelect && onDeptSelect({ id, title, roleFocus, colorClass, icon: Icon, kpis })}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDeptSelect && onDeptSelect({ id, title, roleFocus, colorClass, icon: Icon, kpis }); } }}
+                >
+                    {/* Header */}
+                    <div className={`p-3 ${colorClass} text-white relative`}>
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <Icon size={18} />
+                            </div>
+                            <h3 className="font-bold text-sm leading-tight">{title}</h3>
+                        </div>
+                        <p className="text-[10px] opacity-90 font-medium uppercase tracking-wide">{roleFocus}</p>
+                        
+                        {isAffected && (
+                            <div className="absolute top-2 right-12 bg-amber-400 text-amber-900 text-[9px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 animate-pulse">
+                                <Icons.Link size={10} /> DEPENDS
+                            </div>
+                        )}
+
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onAnalyze(title, kpis, roleFocus); }}
+                            className="absolute top-2 right-2 bg-white/20 hover:bg-white/40 text-white p-1.5 rounded-full transition-all backdrop-blur-sm opacity-90 hover:opacity-100 hover:scale-110"
+                            title="Analyze with AI"
+                        >
+                            <Icons.Sparkles size={14} />
+                        </button>
+                    </div>
+
+                    {/* Body - Conditionally Rendered */}
+                    {!hideKpis && (
+                        <div className="p-2 space-y-1 bg-slate-50 flex-grow"
+                            title="Click to focus this department table">
+                            {kpis.map((kpi, idx) => (
+                                <KPICard key={idx} {...kpi} onSelect={onKpiSelect} onHover={onKpiHover} onLeave={onKpiLeave} />
+                            ))}
+                        </div>
+                    )}
+                    
+                    {/* Visual spacer if KPIs hidden to separate header and footer slightly */}
+                    {hideKpis && <div className="h-1 bg-slate-50"></div>}
+
+                    {/* Related Departments */}
+                    {(() => {
+                        const rel = Array.from(new Set((kpis || []).flatMap(k => (k.relatedDepts || [])))).filter(Boolean);
+                        if (!rel.length) return null;
+                        return (
+                            <div className="px-3 py-2 border-t border-slate-100 bg-white/70">
+                                <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Related / Affected Departments</div>
+                                <div className="dept-badges">
+                                    {rel.map((d) => (
+                                        <span key={d} className={`dept-badge small dept-${deptToClass(d)}`}>{d}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                </div>
+            );
+        };
+
+        const AIModal = ({ isOpen, onClose, title, content, isLoading, error, onSaveKey }) => {
+            if (!isOpen) return null;
+            
+            // If error indicates missing API key, show simple input
+            const isKeyError = error && error.includes("API Key");
+
+            return (
+                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col fade-in">
+                        <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white rounded-t-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                    <Icons.Sparkles size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-lg text-slate-800">Gemini Strategy Engine</h3>
+                                    <p className="text-xs text-slate-500">{title}</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                                <Icons.X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto text-sm text-slate-600 leading-relaxed custom-scrollbar">
+                            {isLoading ? (
+                                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                                    <Icons.Loader className="text-indigo-600" size={32} />
+                                    <p className="text-xs text-slate-400 font-semibold animate-pulse tracking-widest uppercase">Analyzing Data Pattern...</p>
+                                </div>
+                            ) : error ? (
+                                <div className="bg-red-50 text-red-800 p-4 rounded-lg border border-red-100">
+                                    <p className="font-bold flex items-center gap-2 mb-2"><Icons.Shield size={16}/> {isKeyError ? "Setup Required" : "Analysis Failed"}</p>
+                                    <p>{error}</p>
+                                    {isKeyError && (
+                                        <div className="mt-4">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Enter Gemini API Key (starts with AIza...)" 
+                                                className="w-full p-2 border border-slate-300 rounded text-sm mb-2"
+                                                onKeyDown={(e) => {
+                                                    if(e.key === 'Enter') onSaveKey(e.target.value);
+                                                }}
+                                            />
+                                            <button className="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-indigo-700" onClick={(e) => onSaveKey(e.previousElementSibling.value)}>Save Key & Retry</button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="prose prose-sm max-w-none prose-headings:text-slate-800 prose-p:text-slate-600 prose-li:text-slate-600">
+                                    <div dangerouslySetInnerHTML={{ __html: content }} />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const SettingsModal = ({ isOpen, onClose, currentKey, onSave }) => {
+            if (!isOpen) return null;
+            const [val, setVal] = useState(currentKey);
+            return (
+                 <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 fade-in">
+                        <h3 className="text-lg font-bold mb-4">Settings</h3>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Gemini API Key</label>
+                        <input 
+                            type="password" 
+                            value={val}
+                            onChange={(e) => setVal(e.target.value)}
+                            placeholder="AIza..."
+                            className="w-full p-2 border border-slate-300 rounded mb-4 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                            <button onClick={() => { onSave(val); onClose(); }} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ConnectingLine = ({ height = "h-8" }) => (
+            <div className={`w-0.5 bg-slate-300 ${height} mx-auto shrink-0`}></div>
+        );
+
+        // --- MAIN APP ---
+        
+        const KPIModal = ({ isOpen, onClose, data }) => {
+            if (!isOpen || !data) return null;
+            const { kpi, origin } = data;
+            const rel = (kpi && kpi.relatedDepts) ? kpi.relatedDepts : [];
+            return (
+                <div className="fixed inset-0 bg-slate-900/55 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl kpi-pop border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-5 border-b border-slate-100 flex items-start justify-between bg-gradient-to-r from-slate-50 to-white">
+                            <div className="min-w-0 pr-4">
+                                <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">Focused KPI</div>
+                                <div className="text-lg font-bold text-slate-900 leading-snug mt-1">{kpi?.title}</div>
+                                <div className="text-xs text-slate-500 mt-1">Source: <span className="font-semibold text-slate-700">{origin}</span></div>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors" title="Close">
+                                <Icons.X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="p-5 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <div className="text-xs font-semibold text-slate-600">Type</div>
+                                    <div className="mt-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold inline-block">{kpi?.type || "—"}</div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-semibold text-slate-600">Target</div>
+                                    <div className="mt-1 text-sm font-bold text-slate-900">{kpi?.target || "—"}</div>
+                                </div>
+                            </div>
+
+                            {/* Description / Meaning Section */}
+                            {kpi?.description && (
+                                <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100">
+                                    <div className="text-xs font-bold text-indigo-900 uppercase tracking-wide mb-2 flex items-center gap-2">
+                                        <Icons.FileText size={14} /> Description & Meaning
+                                    </div>
+                                    <div className="text-sm text-indigo-900/80 leading-relaxed whitespace-pre-line">
+                                        {kpi.description}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Technical Functions / Notes */}
+                            {kpi?.functions && (
+                                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                    <div className="text-xs font-semibold text-slate-600 mb-1">Technical System / Note</div>
+                                    <div className="text-xs text-slate-600 font-mono">{kpi.functions}</div>
+                                </div>
+                            )}
+
+                            <div className="pt-2">
+                                <div className="text-xs font-semibold text-slate-600 mb-2">Related / Affected Departments</div>
+                                {rel.length ? (
+                                    <div className="dept-badges">
+                                        {rel.map((d) => (
+                                            <span key={d} className={`dept-badge dept-${deptToClass(d)}`}>{d}</span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-sm text-slate-500">No related departments defined for this KPI.</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        const DeptModal = ({ isOpen, onClose, data, onKpiSelect, onKpiHover, onKpiLeave }) => {
+            if (!isOpen || !data) return null;
+            const Icon = data.icon || Icons.Building2;
+            const rel = Array.from(new Set((data.kpis || []).flatMap(k => (k.relatedDepts || [])))).filter(Boolean);
+
+            return (
+                <div className="fixed inset-0 bg-slate-900/55 z-[55] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl dept-pop border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className={`p-5 border-b border-slate-100 flex items-start justify-between ${data.colorClass || "bg-slate-800"} text-white`}>
+                            <div className="min-w-0 pr-4">
+                                <div className="text-[11px] text-white/80 font-semibold uppercase tracking-wide">Focused Department Table</div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <div className="p-2 bg-white/15 rounded-lg backdrop-blur-sm">
+                                        <Icon size={18} />
+                                    </div>
+                                    <div className="text-lg font-bold leading-snug">{data.title}</div>
+                                </div>
+                                <div className="text-xs text-white/80 mt-1">{data.roleFocus}</div>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-white/15 rounded-full transition-colors" title="Close">
+                                <Icons.X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="p-4 bg-slate-50">
+                            <div className="text-xs font-semibold text-slate-600 mb-2">KPIs</div>
+                            <div className="space-y-1">
+                                {(data.kpis || []).map((kpi, idx) => (
+                                    <KPICard 
+                                        key={idx} 
+                                        {...kpi} 
+                                        onSelect={(picked) => { onClose(); onKpiSelect && onKpiSelect(picked); }}
+                                        onHover={onKpiHover} 
+                                        onLeave={onKpiLeave} 
+                                    />
+                                ))}
+                            </div>
+
+                            <div className="mt-4 pt-3 border-t border-slate-200">
+                                <div className="text-xs font-semibold text-slate-600 mb-2">Related / Affected Departments</div>
+                                {rel.length ? (
+                                    <div className="dept-badges">
+                                        {rel.map((d) => (
+                                            <span key={d} className={`dept-badge dept-${deptToClass(d)}`}>{d}</span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-sm text-slate-500">No related departments defined for this department.</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+    const App = () => {
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [modalTitle, setModalTitle] = useState('');
+            const [modalContent, setModalContent] = useState('');
+            const [modalError, setModalError] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+            const [hoveredNode, setHoveredNode] = useState(null);
+            const [kpiModal, setKpiModal] = useState(null); // { kpi, origin }
+            const [deptModal, setDeptModal] = useState(null); // { id, title, roleFocus, colorClass, icon, kpis }
+            const [highlightDepts, setHighlightDepts] = useState([]);
+            
+            // Scaling State
+            const [scale, setScale] = useState(1);
+
+            useEffect(() => {
+                const handleResize = () => {
+                    // Estimated dimensions of the full chart content
+                    // Width = Left Col + COO + Right Col + Margins
+                    const baseWidth = 1800; 
+                    // Height = CEO + Spacer + (4 cards vertical stack)
+                    const baseHeight = 1300; 
+                    
+                    const padding = 40; 
+                    const availableWidth = window.innerWidth - padding;
+                    const availableHeight = window.innerHeight - 100; // minus header height
+                    
+                    // Calculate scale to fit BOTH width and height (Contain strategy)
+                    const scaleX = availableWidth / baseWidth;
+                    const scaleY = availableHeight / baseHeight;
+                    
+                    // Use the smaller scale factor to ensure everything fits
+                    const newScale = Math.min(1, scaleX, scaleY);
+                    
+                    setScale(newScale);
+                };
+
+                // Calculate on mount and resize
+                handleResize();
+                window.addEventListener('resize', handleResize);
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            // API Key management
+            const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || "");
+
+            const handleSaveKey = (key) => {
+                setApiKey(key);
+                localStorage.setItem('gemini_api_key', key);
+                // If modal is open with error, try to retry if we have data
+                // (Simplification: just close and let user click again or keep simple)
+                if (modalTitle) setIsModalOpen(false); 
+            };
+
+            
+            // KPI focus UI handlers
+            const handleKpiSelect = (originTitle) => (kpi) => {
+                setKpiModal({ kpi, origin: originTitle });
+                setHighlightDepts((kpi && kpi.relatedDepts) ? kpi.relatedDepts : []);
+            };
+            const handleKpiHover = (rel) => {
+                if (kpiModal) return;
+                setHighlightDepts(rel || []);
+            };
+            const handleKpiLeave = () => {
+                if (kpiModal) return;
+                setHighlightDepts([]);
+            };
+            const closeKpiModal = () => {
+                setKpiModal(null);
+                setHighlightDepts([]);
+            };
+
+            const handleDeptSelect = (dept) => {
+                setDeptModal(dept);
+                const rel = Array.from(new Set((dept?.kpis || []).flatMap(k => (k.relatedDepts || [])))).filter(Boolean);
+                setHighlightDepts(rel);
+            };
+            const closeDeptModal = () => {
+                setDeptModal(null);
+                if (!kpiModal) setHighlightDepts([]);
+            };
+
+// --- DATA STRUCTURES ---
+                        const ceoData = {
+                id: 'CEO',
+                title: "CEO (Chief Executive Officer)",
+                roleFocus: "Strategy, Growth, Major Clients, Risk Ownership",
+                icon: Icons.Briefcase,
+                color: "bg-slate-800",
+                kpis: [
+                    { 
+                        title: "Revenue Growth", 
+                        type: "Financial", 
+                        target: "+15% YoY", 
+                        relatedDepts: ['Commercial','Finance'], 
+                        owner: "CEO",
+                        description: "Sustainable growth measured as (Current Y revenue - Last Y) / Last Y. A drop warns that clients may be stopping tenders or delaying awards."
+                    },
+                    { 
+                        title: "Client Retention", 
+                        type: "Growth", 
+                        target: "≥ 80%", 
+                        relatedDepts: ['Commercial','Operations'], 
+                        owner: "CEO",
+                        description: "Measures stable client base (Repeat clients / Total clients). A drop is a silent warning that clients are not prioritizing us, potentially due to poor execution or relationship management."
+                    },
+                    { 
+                        title: "Major Client Approval", 
+                        type: "Strategic", 
+                        target: "1–2 / yr", 
+                        relatedDepts: ['Commercial'], 
+                        owner: "CEO",
+                        description: "Count of approved access to Tier-1 clients (e.g., ADNOC). Critical for long-term revenue eligibility."
+                    },
+                    { 
+                        title: "Zero Major Incidents", 
+                        type: "Safety", 
+                        target: "ZERO", 
+                        relatedDepts: ['QHSE','Operations','Diving','Plant'], 
+                        owner: "CEO",
+                        description: "Protects life and reputation. Measured by fatalities or major incidents. Safety failures directly damage client trust and market eligibility."
+                    },
+                    { 
+                        title: "Cash Stability", 
+                        type: "Financial", 
+                        target: "Positive", 
+                        relatedDepts: ['Finance','Commercial'], 
+                        owner: "CEO",
+                        description: "Ensures survival and resilience. Calculated as Bank + Receivables - Payables. If negative, the company cannot sustain operations."
+                    },
+                    { 
+                        title: "International Industry Participation", 
+                        type: "Strategic", 
+                        target: "≥ 2 / yr", 
+                        relatedDepts: ['Commercial'], 
+                        owner: "CEO",
+                        description: "Strengthen PMS visibility in global marine & offshore forums through event attendance."
+                    },
+                    { 
+                        title: "Strategic International Partnerships", 
+                        type: "Strategic", 
+                        target: "≥ 1 / yr", 
+                        relatedDepts: ['Commercial'], 
+                        owner: "CEO",
+                        description: "Position PMS as a trusted regional & international partner through signed MOUs or alliances."
+                    },
+                    { 
+                        title: "Thought Leadership", 
+                        type: "Strategic", 
+                        target: "≥ 2 / yr", 
+                        relatedDepts: ['Commercial'], 
+                        owner: "CEO",
+                        description: "Establish PMS as a sector reference through papers, panels, or keynote roles."
+                    },
+                ],
+                affectedBy: ['COO', 'Commercial', 'Operations', 'Finance', 'QHSE', 'IT', 'Plant', 'HR', 'Diving']
+            };
+
+
+                        const cooData = {
+                id: 'COO',
+                title: "COO (Chief Operating Officer)",
+                roleFocus: "Delivery, Cost, Schedule, Safety (Profit Protector)",
+                icon: Icons.Activity,
+                color: "bg-emerald-700",
+                kpis: [
+                    { 
+                        title: "On-Time Project Delivery", 
+                        type: "Operational", 
+                        target: "≥ 90%", 
+                        relatedDepts: ['Operations'], 
+                        owner: "COO",
+                        description: "Meeting commitments. Measured as Projects on time / Total projects. Delays destroy margin and reputation."
+                    },
+                    { 
+                        title: "Project Margin Protection", 
+                        type: "Financial", 
+                        target: "≥ Planned", 
+                        relatedDepts: ['Operations','Finance','Commercial'], 
+                        owner: "COO",
+                        description: "Preventing profit erosion. Measured by comparing Actual Margin vs. Planned Margin."
+                    },
+                    { 
+                        title: "Equipment Readiness", 
+                        type: "Asset", 
+                        target: "≥ 95%", 
+                        relatedDepts: ['Plant','Operations'], 
+                        owner: "COO",
+                        description: "Avoiding delays caused by asset failure. Measured as Ready assets / Required assets."
+                    },
+                    { 
+                        title: "Offshore Incidents", 
+                        type: "Safety", 
+                        target: "ZERO", 
+                        relatedDepts: ['QHSE','Operations','Diving','Plant','HR'], 
+                        owner: "COO",
+                        description: "Zero harm objective. Any incident indicates a failure in operational control or safety culture."
+                    },
+                    { 
+                        title: "Client Complaints", 
+                        type: "Growth", 
+                        target: "ZERO", 
+                        relatedDepts: ['Operations','Commercial'], 
+                        owner: "COO",
+                        description: "Ensuring quality delivery. Major complaints signal that execution did not meet client expectations."
+                    },
+                    { 
+                        title: "Digital Asset & Certification Visibility", 
+                        type: "Asset", 
+                        target: "100%", 
+                        relatedDepts: ['Plant','IT'], 
+                        owner: "COO", 
+                        functions: "NAMS / CMMS / Register",
+                        description: "Ensure 100% visibility and control of all equipment and certification status to prevent stoppage."
+                    },
+                    { 
+                        title: "Technology Deployment", 
+                        type: "Technology", 
+                        target: "≥ 2 / yr", 
+                        relatedDepts: ['IT','Plant','Operations'], 
+                        owner: "COO",
+                        description: "Drive digital transformation. Implementation of initiatives that reduce manual work and increase reliability."
+                    },
+                    { 
+                        title: "Process Optimization Initiatives", 
+                        type: "Operational", 
+                        target: "≥ 3 / yr", 
+                        relatedDepts: ['Operations','IT'], 
+                        owner: "COO",
+                        description: "Improve efficiency and reduce manual work through approved and implemented SOP improvements."
+                    },
+                ],
+                affectedBy: ['Operations', 'Diving', 'Plant', 'HR', 'QHSE', 'Finance', 'IT']
+            };
+
+
+                        const financeData = {
+                id: 'Finance',
+                title: "Finance Dept",
+                roleFocus: "Cash, Collection, Cost Control, Audit",
+                icon: Icons.DollarSign,
+                color: "bg-blue-600",
+                kpis: [
+                    { 
+                        title: "Cash Flow", 
+                        type: "Financial", 
+                        target: "Positive", 
+                        relatedDepts: ['Commercial','Operations'], 
+                        owner: "Finance",
+                        description: "Money coming in vs. money going out. Even a profitable company can fail if it has no cash to pay salaries, suppliers, or fuel."
+                    },
+                    { 
+                        title: "DSO (Days Sales Outstanding)", 
+                        type: "Financial", 
+                        target: "< 60 days", 
+                        relatedDepts: ['Commercial','Operations','CEO'], 
+                        owner: "Finance",
+                        description: "How many days clients take to pay. The longer the client delays payment, the higher the financial risk and cash pressure."
+                    },
+                    { 
+                        title: "Cost Control", 
+                        type: "Financial", 
+                        target: "≤ 5% var", 
+                        relatedDepts: ['Operations','Plant','Commercial'], 
+                        owner: "Finance",
+                        description: "Making sure actual spending stays close to the approved budget. Uncontrolled costs (delays, rework, idle time) quietly destroy profit."
+                    },
+                    { 
+                        title: "Payroll Timeliness", 
+                        type: "HR", 
+                        target: "100% on time", 
+                        relatedDepts: ['HR','CEO'], 
+                        owner: "Finance",
+                        description: "Paying salaries on time, every time. Late salaries cause low morale, staff turnover, and operational disruption."
+                    },
+                    { 
+                        title: "Audit Readiness", 
+                        type: "Governance", 
+                        target: "100% clean", 
+                        relatedDepts: ['All Depts','QHSE','Operations'], 
+                        owner: "Finance",
+                        description: "Being ready at any time for Financial, ISO, or Client audits. Failures damage client trust, certifications, and reputation."
+                    },
+                ],
+                affectedBy: ['Commercial', 'Operations', 'Plant', 'HR', 'QHSE']
+            };
+
+
+                        const hrData = {
+                id: 'HR',
+                title: "Administration & HR",
+                roleFocus: "Competence, Availability, Culture",
+                icon: Icons.UserCheck,
+                color: "bg-purple-600",
+                kpis: [
+                    { 
+                        title: "Staff Turnover", 
+                        type: "HR", 
+                        target: "< 10%", 
+                        relatedDepts: ['Operations','Finance','QHSE','Diving','CEO','COO'], 
+                        owner: "HR",
+                        description: "Employees leaving the company. High turnover causes loss of experience, delays, and extra recruitment costs."
+                    },
+                    { 
+                        title: "Certification Validity (People)", 
+                        type: "Safety", 
+                        target: "100%", 
+                        relatedDepts: ['Operations','QHSE','Commercial','Diving'], 
+                        owner: "HR",
+                        description: "Ensuring all employee certificates (safety, medical, licenses) are valid. Expired certificates can stop work and fail audits."
+                    },
+                    { 
+                        title: "Crew Availability", 
+                        type: "Operational", 
+                        target: "≥ 95%", 
+                        relatedDepts: ['Operations','Commercial','Finance','QHSE','Diving'], 
+                        owner: "HR",
+                        description: "Having enough trained staff ready when projects start. Low availability causes mobilization delays and missed commitments."
+                    },
+                    { 
+                        title: "Training Completion", 
+                        type: "HR", 
+                        target: "≥ 90%", 
+                        relatedDepts: ['Operations','QHSE','Diving','CEO','COO'], 
+                        owner: "HR",
+                        description: "Completion of required training by employees. Training improves safety, quality, and performance."
+                    },
+                    { 
+                        title: "Discipline Issues", 
+                        type: "Governance", 
+                        target: "ZERO major", 
+                        relatedDepts: ['Operations','QHSE','Diving','CEO','COO'], 
+                        owner: "HR",
+                        description: "Major behavior or conduct violations. Poor discipline leads to accidents, conflicts, and reputation damage."
+                    },
+                ],
+                affectedBy: ['Operations', 'Finance', 'QHSE', 'Diving', 'Commercial']
+            };
+
+
+                        const opsData = {
+                id: 'Operations',
+                title: "Operations Dept",
+                roleFocus: "Project Execution",
+                icon: Icons.Layers,
+                color: "bg-cyan-600",
+                kpis: [
+                    { 
+                        title: "Mobilization Readiness", 
+                        type: "Operational", 
+                        target: "100%", 
+                        relatedDepts: ['Plant','HR','Diving','QHSE','IT'], 
+                        owner: "Operations",
+                        description: "Ability to start the project on the planned date with all people, equipment, approvals, and logistics fully ready. Any gap creates immediate delay and extra cost."
+                    },
+                    { 
+                        title: "Daily Plan Achievement", 
+                        type: "Operational", 
+                        target: "≥ 85%", 
+                        relatedDepts: ['Plant','HR','Diving','QHSE','IT'], 
+                        owner: "Operations",
+                        description: "Degree to which the Operations team delivers what was planned for the day. Shows execution discipline and planning quality."
+                    },
+                    { 
+                        title: "PMS-Caused Delays", 
+                        type: "Operational", 
+                        target: "ZERO", 
+                        relatedDepts: ['Plant','HR','Diving','QHSE','IT'], 
+                        owner: "Operations",
+                        description: "Delays caused internally by PMS (e.g., late mob, wrong equipment, missing docs). These are fully controllable and directly reduce margin."
+                    },
+                    { 
+                        title: "Cost Variance", 
+                        type: "Financial", 
+                        target: "≤ 5%", 
+                        relatedDepts: ['Finance','Plant'], 
+                        owner: "Operations",
+                        description: "Difference between planned project cost and actual cost. Higher variance signals loss of operational control (rework, idle time, overtime)."
+                    },
+                    { 
+                        title: "Major NCRs", 
+                        type: "Operational", 
+                        target: "ZERO", 
+                        relatedDepts: ['QHSE','Diving','Plant'], 
+                        owner: "Operations",
+                        description: "Serious breaches of quality, safety, or compliance requirements. Major NCRs can stop work, trigger penalties, or damage client trust."
+                    },
+                ],
+                affectedBy: ['Plant', 'HR', 'Diving', 'QHSE', 'IT', 'Finance']
+            };
+
+
+                        const divingData = {
+                id: 'Diving', 
+                title: "Diving Dept (IMCA)", 
+                roleFocus: "Core Business & Life-Critical Safety",
+                icon: Icons.Anchor,
+                color: "bg-teal-600",
+                kpis: [
+                    { 
+                        title: "Incident-Free Dive Hours", 
+                        type: "Safety", 
+                        target: "100%", 
+                        relatedDepts: ['QHSE','Plant','Operations'], 
+                        owner: "Diving",
+                        description: "Diving hours completed without accidents or incidents. Any incident during diving work can cause serious injury, fatality, or project stoppage."
+                    },
+                    { 
+                        title: "Dive Plan Compliance", 
+                        type: "Operational", 
+                        target: "≥ 95%", 
+                        relatedDepts: ['QHSE','Operations','Management'], 
+                        owner: "Diving",
+                        description: "Executing dives exactly according to the approved dive plan. Deviating increases risk and shows loss of operational control."
+                    },
+                    { 
+                        title: "Equipment Condition (Diving)", 
+                        type: "Asset", 
+                        target: "100%", 
+                        relatedDepts: ['Plant','QHSE'], 
+                        owner: "Diving",
+                        description: "All diving equipment is safe, functional, and fit for use. Faulty or poorly maintained equipment can directly cause diving incidents."
+                    },
+                    { 
+                        title: "CMS Compliance", 
+                        type: "HR", 
+                        target: "100%", 
+                        relatedDepts: ['HR','QHSE'], 
+                        owner: "Diving",
+                        description: "Competence Management System: All divers are trained, certified, and medically fit. Unqualified divers increase safety risk and non-compliance."
+                    },
+                    { 
+                        title: "Rework / NCRs", 
+                        type: "Operational", 
+                        target: "ZERO", 
+                        relatedDepts: ['QHSE','Operations'], 
+                        owner: "Diving",
+                        description: "Work that had to be corrected or repeated because it was not done correctly the first time. Indicates poor planning, execution, or supervision."
+                    },
+                ],
+                affectedBy: ['Plant', 'HR', 'QHSE', 'Operations']
+            };
+
+
+                        const plantData = {
+                id: 'Plant',
+                title: "Plant / Assets",
+                roleFocus: "Readiness, Certification, Reliability",
+                icon: Icons.HardHat,
+                color: "bg-orange-600",
+                kpis: [
+                    { 
+                        title: "Equipment Availability", 
+                        type: "Asset", 
+                        target: "≥ 95%", 
+                        relatedDepts: ['Operations','Commercial','Finance','Diving'], 
+                        owner: "Plant",
+                        description: "How much equipment is ready to work when needed. If one critical machine is missing, the job can stop even if many other tools are ready."
+                    },
+                    { 
+                        title: "Certification Validity", 
+                        type: "Asset", 
+                        target: "100%", 
+                        relatedDepts: ['QHSE','Operations','Commercial','Diving'], 
+                        owner: "Plant", 
+                        functions: "NAMS / Register",
+                        description: "All equipment papers and certificates must be valid and not expired. Equipment without valid certificates cannot be used, even if it works."
+                    },
+                    { 
+                        title: "Breakdown Incidents", 
+                        type: "Asset", 
+                        target: "ZERO", 
+                        relatedDepts: ['Operations','Finance','QHSE','Diving'], 
+                        owner: "Plant",
+                        description: "Equipment stopping suddenly because of failure. Breakdowns cause delays, safety risk, and extra cost."
+                    },
+                    { 
+                        title: "Damage Rate", 
+                        type: "Financial", 
+                        target: "< 2%", 
+                        relatedDepts: ['Operations','HR','QHSE','Finance'], 
+                        owner: "Plant",
+                        description: "Equipment damaged because of misuse, bad handling, or accidents. Damaged equipment lasts less time, costs more to fix, and is often unavailable."
+                    },
+                    { 
+                        title: "Utilization Rate", 
+                        type: "Financial", 
+                        target: "≥ 70%", 
+                        relatedDepts: ['Commercial','Operations','Finance'], 
+                        owner: "Plant",
+                        description: "How much equipment is actually used compared to what is available. Too little use wastes money, too much use causes failures."
+                    },
+                    { 
+                        title: "Preventive Maintenance Digitalization", 
+                        type: "Technology", 
+                        target: "≥ 80%", 
+                        relatedDepts: ['IT','Operations','QHSE'], 
+                        owner: "Plant",
+                        description: "Fixing and servicing equipment before it breaks. Reduces operational risk through automated maintenance systems."
+                    },
+                ],
+                affectedBy: ['Finance', 'IT', 'Operations', 'Commercial', 'QHSE', 'HR', 'Diving']
+            };
+
+
+                        const commercialData = {
+                id: 'Commercial',
+                title: "Commercial Dept",
+                roleFocus: "Tenders, Pricing, Backlog, Growth",
+                icon: Icons.FileText,
+                color: "bg-indigo-600",
+                kpis: [
+                    { 
+                        title: "Tender Win Rate", 
+                        type: "Growth", 
+                        target: "≥ 30%", 
+                        relatedDepts: ['Operations','Finance','CEO'], 
+                        owner: "Commercial",
+                        description: "Percentage of tenders won out of tenders submitted. Shows how well Commercial selects the right tenders and prices them competitively."
+                    },
+                    { 
+                        title: "Tender Compliance", 
+                        type: "Governance", 
+                        target: "100%", 
+                        relatedDepts: ['Operations','QHSE','IT'], 
+                        owner: "Commercial",
+                        description: "Submitting tenders fully aligned with client requirements (zero errors). Non-compliant tenders are rejected regardless of price or experience."
+                    },
+                    { 
+                        title: "Backlog Coverage", 
+                        type: "Strategic", 
+                        target: "≥ 6 months", 
+                        relatedDepts: ['Operations','Finance','CEO'], 
+                        owner: "Commercial",
+                        description: "Amount of confirmed future work secured. Ensures stable workload and avoids idle resources or rushed bidding."
+                    },
+                    { 
+                        title: "Pricing Accuracy", 
+                        type: "Financial", 
+                        target: "≥ 95%", 
+                        relatedDepts: ['Operations','Plant','Finance'], 
+                        owner: "Commercial",
+                        description: "How close the tender price is to the real execution cost. Winning a project means nothing if the price was wrong—profit is lost after the award."
+                    },
+                    { 
+                        title: "Client Follow-up", 
+                        type: "Growth", 
+                        target: "100% logged", 
+                        relatedDepts: ['CEO','Operations','IT'], 
+                        owner: "Commercial",
+                        description: "Tracking client feedback after tender submission. Improves future bids and strengthens long-term relationships."
+                    },
+                    { 
+                        title: "International Market Penetration", 
+                        type: "Growth", 
+                        target: "≥ 20%", 
+                        relatedDepts: ['CEO','Operations','Finance'], 
+                        owner: "Commercial",
+                        description: "Winning work outside the UAE to reduce dependency on one market. Supports long-term growth and risk diversification."
+                    },
+                    { 
+                        title: "Market Survey", 
+                        type: "Strategic", 
+                        target: "Active", 
+                        relatedDepts: ['Operations','Finance','CEO'], 
+                        owner: "Commercial",
+                        description: "Understanding the market: upcoming tenders, competitors, prices, and client behavior (how they decide)."
+                    },
+                ],
+                affectedBy: ['Operations', 'Finance', 'CEO', 'QHSE', 'IT', 'Plant']
+            };
+
+            
+                        const qhseData = {
+                id: 'QHSE',
+                title: "QHSE Dept",
+                roleFocus: "ISO Compliance, Safety, Environment",
+                icon: Icons.Shield,
+                color: "bg-red-600",
+                kpis: [
+                    { 
+                        title: "TRIR (Total Recordable Injury Rate)", 
+                        type: "Safety", 
+                        target: "ZERO", 
+                        relatedDepts: ['Operations','HR','Plant','Diving','Management'], 
+                        owner: "QHSE",
+                        description: "Counts how many work injuries are serious enough to be recorded. Shows how safe the workplace is."
+                    },
+                    { 
+                        title: "Near Miss Reporting", 
+                        type: "Safety", 
+                        target: "↑ trend", 
+                        relatedDepts: ['Operations','Plant','Diving','HR'], 
+                        owner: "QHSE",
+                        description: "Reporting unsafe situations that almost caused an accident but did not. Helps identify risks early and prevent real injuries."
+                    },
+                    { 
+                        title: "Stop Work Actions", 
+                        type: "Safety", 
+                        target: "≥ baseline", 
+                        relatedDepts: ['Operations','Plant','Diving','Management'], 
+                        owner: "QHSE",
+                        description: "Stopping work immediately when conditions are unsafe. Stopping unsafe work prevents injuries and saves lives."
+                    },
+                    { 
+                        title: "Audit Findings Closed", 
+                        type: "Governance", 
+                        target: "100% on time", 
+                        relatedDepts: ['All Depts','Operations','Plant','HR'], 
+                        owner: "QHSE",
+                        description: "Issues found during audits that are corrected and officially closed. Shows the management system is effective."
+                    },
+                    { 
+                        title: "Environmental Incidents", 
+                        type: "Safety", 
+                        target: "ZERO", 
+                        relatedDepts: ['Operations','Plant','Diving','Management'], 
+                        owner: "QHSE",
+                        description: "Any event that causes harm to the environment (spills, pollution). Causes fines, work stoppage, and reputation loss."
+                    },
+                ],
+                affectedBy: ['Operations', 'Diving', 'Plant', 'HR', 'Commercial', 'Finance', 'IT']
+            };
+
+
+                        const itData = {
+                id: 'IT',
+                title: "IT / Digital Systems",
+                roleFocus: "Systems, Data, Automation, Document Control",
+                icon: Icons.Layers,
+                color: "bg-sky-600",
+                kpis: [
+                    { 
+                        title: "System Uptime", 
+                        type: "Technology", 
+                        target: "≥ 99%", 
+                        relatedDepts: ['All Depts'], 
+                        owner: "IT",
+                        description: "Ensuring critical digital systems (ERP, CRM, NAMS) are available. Downtime disrupts Operations, Finance, and Plant."
+                    },
+                    { 
+                        title: "Automation Delivery", 
+                        type: "Technology", 
+                        target: "Monthly", 
+                        relatedDepts: ['COO','Plant','Operations','Commercial'], 
+                        owner: "IT",
+                        description: "Delivering planned automation initiatives (e.g., PM auto-triggers). Reduces manual work and increases reliability."
+                    },
+                    { 
+                        title: "Data Quality", 
+                        type: "Technology", 
+                        target: "≥ 95%", 
+                        relatedDepts: ['Finance','Operations','Commercial','Plant'], 
+                        owner: "IT",
+                        description: "Accuracy of data in reports (Financial, Operational). Poor data leads to wrong strategic decisions."
+                    }
+                ],
+                affectedBy: ['Finance', 'Operations', 'Plant', 'Commercial', 'QHSE', 'HR']
+            };
+
+
+            // --- API LOGIC ---
+
+            const callGemini = async (prompt) => {
+                if (!apiKey) {
+                    setModalError("Missing API Key. Please add your Gemini API Key in Settings to use the AI analysis features.");
+                    setIsLoading(false);
+                    return;
+                }
+
+                setIsLoading(true);
+                setModalError(null);
+                
+                try {
+                    const response = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+                        }
+                    );
+                    
+                    if (!response.ok) {
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (text) {
+                        // Simple markdown-to-html converter for the response
+                        const formattedText = text
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\n/g, '<br/>');
+                        setModalContent(formattedText);
+                    } else {
+                        setModalContent("No insights generated.");
+                    }
+                } catch (error) {
+                    setModalError("Error connecting to AI service. Check your API key or network connection.");
+                    console.error(error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleAnalyze = (role, kpis, focus) => {
+                setIsModalOpen(true);
+                setModalTitle(`Analyzing Role: ${role}`);
+                setModalContent('');
+                setModalError(null);
+                
+                const prompt = `
+                    You are a strategic business consultant for an Offshore Marine Services company.
+                    
+                    Analyze this role:
+                    Role: ${role}
+                    Focus: ${focus}
+                    Key Performance Indicators (KPIs): ${JSON.stringify(kpis)}
+
+                    Provide a concise, strategic critique in 3 short paragraphs:
+                    1. **Hidden Risk:** What is the biggest "blind spot" or risk for this role based on these KPIs?
+                    2. **Strategic Move:** Suggest one high-impact cross-departmental action to improve performance.
+                    3. **Innovation Opportunity:** How can this role better leverage technology?
+                    
+                    Keep the tone professional and actionable.
+                `;
+                callGemini(prompt);
+            };
+
+            const leftSideDepts = [commercialData, financeData, hrData, itData];
+            const rightSideDepts = [opsData, plantData, divingData, qhseData];
+
+            return (
+                <div className="min-h-screen pb-20 bg-slate-100 font-sans">
+                    <DeptModal
+                        isOpen={!!deptModal}
+                        onClose={closeDeptModal}
+                        data={deptModal}
+                        onKpiSelect={(kpi) => {
+                            const origin = deptModal?.title || "Department";
+                            setKpiModal({ kpi, origin });
+                            setHighlightDepts((kpi && kpi.relatedDepts) ? kpi.relatedDepts : []);
+                        }}
+                        onKpiHover={handleKpiHover}
+                        onKpiLeave={handleKpiLeave}
+                        onDeptSelect={handleDeptSelect}
+                    />
+                    <KPIModal isOpen={!!kpiModal} onClose={closeKpiModal} data={kpiModal} />
+                    <AIModal 
+                        isOpen={isModalOpen} 
+                        onClose={() => setIsModalOpen(false)} 
+                        title={modalTitle} 
+                        content={modalContent} 
+                        isLoading={isLoading} 
+                        error={modalError}
+                        onSaveKey={handleSaveKey}
+                    />
+                    
+                    <SettingsModal
+                        isOpen={isSettingsOpen}
+                        onClose={() => setIsSettingsOpen(false)}
+                        currentKey={apiKey}
+                        onSave={handleSaveKey}
+                    />
+
+                    {/* Top Bar */}
+                    <div className="bg-white border-b border-slate-200 px-8 py-4 sticky top-0 z-40 shadow-sm flex justify-between items-center">
+                        <div>
+                            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">PMS Strategic Map</h1>
+                            <p className="text-xs text-slate-500 font-medium">Hierarchical Alignment & Inter-Departmental Dependencies</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="hidden md:flex items-center gap-2 text-xs bg-amber-50 text-amber-800 px-3 py-1.5 rounded-full border border-amber-200 animate-pulse">
+                                <Icons.Link weight="bold" />
+                                <span>Hover nodes to trace dependencies</span>
+                            </div>
+                            <button 
+                                onClick={() => setIsSettingsOpen(true)}
+                                className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors"
+                                title="Settings"
+                            >
+                                <Icons.Gear size={24} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* SCALABLE CONTENT CONTAINER */}
+                    {/* Changed overflow-hidden to overflow-auto for safety */}
+                    <div className="w-full flex justify-center bg-slate-100 overflow-auto" style={{ height: 'calc(100vh - 80px)' }}>
+                        <div 
+                            style={{ 
+                                transform: `scale(${scale})`, 
+                                transformOrigin: 'top center',
+                                width: '1800px', // Matches baseWidth
+                                height: '1300px' // Matches baseHeight to reserve space
+                            }}
+                            className="p-8 pt-8 origin-top transition-transform duration-300 ease-out"
+                        >
+                            
+                            {/* --- ORG CHART TREE STRUCTURE --- */}
+
+                            <div className="flex flex-col items-center">
+                                {/* ROW 1: CEO */}
+                                <OrgNode 
+                                    {...ceoData} 
+                                    colorClass={ceoData.color} 
+                                    width="w-80"
+                                    onAnalyze={handleAnalyze} 
+                                    onHover={setHoveredNode}
+                                    hoveredId={hoveredNode}
+                                    highlightDepts={highlightDepts}
+                                    onKpiSelect={handleKpiSelect(ceoData.title)}
+                                    onKpiHover={handleKpiHover}
+                                    onKpiLeave={handleKpiLeave}
+                                    onDeptSelect={handleDeptSelect}
+                                />
+                                
+                                {/* Vertical Connector CEO -> COO */}
+                                <div className="h-12 w-0.5 bg-slate-300"></div>
+
+                                {/* Main Strategic Row */}
+                                <div className="flex items-center gap-0">
+                                    
+                                    {/* Left Column Group */}
+                                    <div className="flex flex-col gap-6 items-end pr-6 border-r-2 border-slate-300 relative py-8">
+                                        {/* Horizontal Connector from Group to COO */}
+                                        <div className="absolute top-1/2 right-0 w-6 h-0.5 bg-slate-300 translate-x-full -mr-[1px]"></div>
+                                        
+                                        {leftSideDepts.map(dept => (
+                                            <div key={dept.id} className="flex items-center gap-4 relative group/line">
+                                                <OrgNode 
+                                                    {...dept} 
+                                                    colorClass={dept.color} 
+                                                    width="w-64" 
+                                                    hideKpis={true}
+                                                    onAnalyze={handleAnalyze} 
+                                                    onHover={setHoveredNode} 
+                                                    hoveredId={hoveredNode}
+                                                    highlightDepts={highlightDepts}
+                                                    onKpiSelect={handleKpiSelect(dept.title)}
+                                                    onKpiHover={handleKpiHover}
+                                                    onKpiLeave={handleKpiLeave}
+                                                    onDeptSelect={handleDeptSelect}
+                                                />
+                                                <div className="w-6 h-0.5 bg-slate-300"></div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Center COO */}
+                                    <div className="mx-6">
+                                        <OrgNode 
+                                            {...cooData} 
+                                            colorClass={cooData.color} 
+                                            width="w-80" 
+                                            onAnalyze={handleAnalyze} 
+                                            onHover={setHoveredNode} 
+                                            hoveredId={hoveredNode} 
+                                            highlightDepts={highlightDepts} 
+                                            onKpiSelect={handleKpiSelect(cooData.title)} 
+                                            onKpiHover={handleKpiHover} 
+                                            onKpiLeave={handleKpiLeave}
+                                            onDeptSelect={handleDeptSelect}
+                                        />
+                                    </div>
+
+                                    {/* Right Column Group */}
+                                    <div className="flex flex-col gap-6 items-start pl-6 border-l-2 border-slate-300 relative py-8">
+                                        {/* Horizontal Connector from COO to Group */}
+                                        <div className="absolute top-1/2 left-0 w-6 h-0.5 bg-slate-300 -translate-x-full -ml-[1px]"></div>
+
+                                        {rightSideDepts.map(dept => (
+                                            <div key={dept.id} className="flex items-center gap-4">
+                                                <div className="w-6 h-0.5 bg-slate-300"></div>
+                                                <OrgNode 
+                                                    {...dept} 
+                                                    colorClass={dept.color} 
+                                                    width="w-64" 
+                                                    hideKpis={true}
+                                                    onAnalyze={handleAnalyze} 
+                                                    onHover={setHoveredNode} 
+                                                    hoveredId={hoveredNode}
+                                                    highlightDepts={highlightDepts}
+                                                    onKpiSelect={handleKpiSelect(dept.title)}
+                                                    onKpiHover={handleKpiHover}
+                                                    onKpiLeave={handleKpiLeave}
+                                                    onDeptSelect={handleDeptSelect}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* Legend */}
+                            <div className="mt-16 border-t border-slate-200 pt-6 flex flex-wrap justify-center gap-6 text-xs text-slate-500 font-medium">
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-slate-800 rounded shadow-sm"></div> Executive</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-700 rounded shadow-sm"></div> Operations Lead</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-blue-600 rounded shadow-sm"></div> Support Functions</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-cyan-600 rounded shadow-sm"></div> Execution Units</div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
